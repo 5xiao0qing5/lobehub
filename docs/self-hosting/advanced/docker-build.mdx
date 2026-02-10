@@ -1,0 +1,374 @@
+---
+title: Building Your Own Docker Image
+description: Learn how to build LobeHub Docker images from source code, including build steps, parameter configuration, and troubleshooting.
+tags:
+  - Docker
+  - Build Image
+  - Custom Deployment
+  - Source Build
+---
+
+# Building Your Own Docker Image
+
+This guide will teach you how to build LobeHub Docker images from source code. Building your own image is useful if you need custom builds or want to use a specific code version.
+
+## Prerequisites
+
+Before starting, ensure your system has:
+
+- **Docker**: Version 20.10 or higher
+- **Git**: For cloning the repository
+- At least **8GB** of available memory (for the build process)
+- At least **10GB** of available disk space
+
+## Quick Start
+
+### 1. Clone the Repository
+
+First, clone the LobeHub repository locally:
+
+```bash
+git clone https://github.com/lobehub/lobe-chat.git
+cd lobe-chat
+```
+
+### 2. Use Build Scripts
+
+LobeHub provides convenient build scripts:
+
+#### International Version
+
+```bash
+npm run self-hosting:docker
+```
+
+This will build an image named `lobehub:local`.
+
+#### China Version (Using Domestic Mirrors for Acceleration)
+
+If you're in mainland China, use this command for faster builds:
+
+```bash
+npm run self-hosting:docker-cn
+```
+
+This will build an image named `lobehub-local` (with tag `latest`) using domestic mirror sources.
+
+### 3. Manual Build (Advanced)
+
+You can also use Docker commands directly for finer control:
+
+```bash
+docker build -t lobehub:custom .
+```
+
+#### Using Build Arguments
+
+The Dockerfile supports multiple build arguments to customize the build process:
+
+```bash
+docker build \
+  --build-arg USE_CN_MIRROR=true \
+  --build-arg NEXT_PUBLIC_BASE_PATH=/chat \
+  --build-arg FEATURE_FLAGS=enable_new_feature \
+  -t lobehub:custom \
+  .
+```
+
+**Available Build Arguments:**
+
+| Parameter | Description | Default | Example |
+| --- | --- | --- | --- |
+| `USE_CN_MIRROR` | Use Chinese mirror sources to accelerate build | `false` | `true` |
+| `NODEJS_VERSION` | Node.js version | `24` | `24` |
+| `NEXT_PUBLIC_BASE_PATH` | Base path for the application | - | `/chat` |
+| `FEATURE_FLAGS` | Feature flags | - | `enable_experimental` |
+| `NEXT_PUBLIC_SENTRY_DSN` | Sentry DSN (error tracking) | - | `https://xxx@sentry.io/xxx` |
+
+<Callout type="tip">
+  **About USE_CN_MIRROR:** This parameter switches to domestic npm mirror sources (npmmirror.com)
+  and Debian mirror sources (USTC), significantly improving build speeds in mainland China.
+</Callout>
+
+## Running the Built Image
+
+After building, you can run the image using:
+
+### Basic Run
+
+```bash
+docker run -d \
+  -p 3210:3210 \
+  -e DATABASE_URL=postgres://postgres:password@host.docker.internal:5432/postgres \
+  -e KEY_VAULTS_SECRET=your-secret-key \
+  -e AUTH_SECRET=your-auth-secret \
+  -e JWKS_KEY='{"keys":[...]}' \
+  -e APP_URL=http://localhost:3210 \
+  --name lobehub \
+  lobehub:local
+```
+
+### Using Environment Variable Files
+
+A more recommended approach is using a `.env` file:
+
+```bash
+# 1. Create lobe-chat.env file
+cat > lobe-chat.env << EOF
+APP_URL=http://localhost:3210
+DATABASE_URL=postgres://postgres:password@host.docker.internal:5432/postgres
+KEY_VAULTS_SECRET=your-secret-key
+AUTH_SECRET=your-auth-secret
+JWKS_KEY={"keys":[...]}
+# Add other environment variables...
+EOF
+
+# 2. Run using environment variable file
+docker run -d \
+  -p 3210:3210 \
+  --env-file lobe-chat.env \
+  --name lobehub \
+  lobehub:local
+```
+
+<Callout type="warning">
+  Ensure all required environment variables are provided. For a complete list of environment
+  variables, see the [Environment Variables documentation](/docs/self-hosting/environment-variables).
+</Callout>
+
+## Build Optimization Tips
+
+### 1. Use Docker Build Cache
+
+Docker automatically caches build layers, making rebuilds faster:
+
+```bash
+# Clear build cache (if you need a complete rebuild)
+docker builder prune
+
+# Build without cache
+docker build --no-cache -t lobehub:local .
+```
+
+### 2. Multi-stage Build Optimization
+
+LobeHub's Dockerfile uses multi-stage builds to reduce final image size:
+
+- **base stage**: Prepare base environment and dependencies, including Node.js runtime and necessary system libraries
+- **builder stage**: Install dependencies and build the application
+- **app stage**: Collect files needed for runtime
+- **production stage**: Final minimized image (using `scratch` as base, but includes complete runtime environment copied from app stage)
+
+This is a "distroless" build pattern where the final image contains only the minimal set of files needed to run, approximately **600MB**.
+
+### 3. Build Specific Versions
+
+If you want to build a specific version of LobeHub:
+
+```bash
+# Clone repository
+git clone https://github.com/lobehub/lobe-chat.git
+cd lobe-chat
+
+# Switch to specific version tag
+git checkout v1.0.0
+
+# Build
+npm run self-hosting:docker
+```
+
+## Troubleshooting
+
+### Build Failure: Out of Memory
+
+**Error Message:**
+
+```
+FATAL ERROR: Reached heap limit Allocation failed - JavaScript heap out of memory
+```
+
+**Solution:**
+
+The Dockerfile already sets `NODE_OPTIONS=--max-old-space-size=8192`, but if you still encounter issues, ensure Docker has enough allocated memory (at least 8GB).
+
+In Docker Desktop: Settings → Resources → Memory, adjust to at least 8GB.
+
+### Build Failure: Network Timeout
+
+**Error Message:**
+
+```
+npm ERR! network request timeout
+```
+
+**Solution:**
+
+1. Use domestic mirror build (for China users):
+
+```bash
+npm run self-hosting:docker-cn
+```
+
+2. Or configure Docker proxy
+
+### Image Size Too Large
+
+LobeHub uses multi-stage builds; the final image should be around 600MB. If the image size is abnormally large:
+
+1. Ensure you're using the latest Dockerfile
+2. Check that `.dockerignore` file exists (should exclude `node_modules`, `.next`, etc.)
+3. Clean Docker build cache:
+
+```bash
+docker builder prune -a
+```
+
+### Runtime Error: Database Connection Failed
+
+Ensure:
+
+1. Database URL is correct
+2. If the database is local, use `host.docker.internal` instead of `localhost`
+3. Database is started and accessible
+
+## Uploading to Your Own Docker Hub
+
+If you want to upload your built image to your own Docker Hub account for use on other servers or sharing with your team, follow these steps:
+
+### 1. Login to Docker Hub
+
+First, login with your Docker Hub account:
+
+```bash
+docker login
+```
+
+You'll be prompted to enter your Docker Hub username and password.
+
+<Callout type="tip">
+  It's recommended to use a [Docker Hub Access Token](https://hub.docker.com/settings/security) instead of your password for better security.
+</Callout>
+
+### 2. Tag the Image
+
+Tag your built image with your Docker Hub repository format:
+
+```bash
+# Format: docker tag local-image-name yourusername/repository-name:tag
+docker tag lobehub:local yourusername/lobehub:latest
+docker tag lobehub:local yourusername/lobehub:v1.0.0
+```
+
+**Tag Naming Suggestions:**
+
+- `latest` - Latest version
+- `v1.0.0` - Specific version number
+- `20240210` - Date tag
+- `dev` - Development version
+
+You can add multiple tags to the same image.
+
+### 3. Push the Image
+
+Push the tagged image to Docker Hub:
+
+```bash
+docker push yourusername/lobehub:latest
+docker push yourusername/lobehub:v1.0.0
+```
+
+The push process may take a few minutes, depending on your network speed and image size (approximately 600MB).
+
+### 4. Use on Other Servers
+
+After a successful push, you can pull and use your image on any server:
+
+```bash
+docker pull yourusername/lobehub:latest
+
+docker run -d \
+  -p 3210:3210 \
+  --env-file lobe-chat.env \
+  --name lobehub \
+  yourusername/lobehub:latest
+```
+
+### Complete Example
+
+Here's the complete workflow from build to push:
+
+```bash
+# 1. Build the image
+npm run self-hosting:docker
+
+# 2. Login to Docker Hub
+docker login
+
+# 3. Tag the image (replace yourusername with your username)
+docker tag lobehub:local yourusername/lobehub:latest
+docker tag lobehub:local yourusername/lobehub:v2.0.0
+
+# 4. Push to Docker Hub
+docker push yourusername/lobehub:latest
+docker push yourusername/lobehub:v2.0.0
+
+# 5. Verify upload (optional)
+docker pull yourusername/lobehub:latest
+```
+
+### Private Repositories
+
+If you don't want to share your image publicly, you can create a private repository on Docker Hub:
+
+1. Visit [Docker Hub](https://hub.docker.com)
+2. When creating a new repository, select "Private"
+3. Use the same push commands
+
+<Callout type="warning">
+  Free Docker Hub accounts can only create one private repository. For more private repositories, consider using other container registry services like Alibaba Cloud Container Registry, Tencent Cloud TCR, GitHub Container Registry, etc.
+</Callout>
+
+### Using Other Container Registries
+
+Besides Docker Hub, you can also use other container registries:
+
+#### GitHub Container Registry (ghcr.io)
+
+```bash
+# Login to GitHub
+echo $GITHUB_TOKEN | docker login ghcr.io -u USERNAME --password-stdin
+
+# Tag and push
+docker tag lobehub:local ghcr.io/yourusername/lobehub:latest
+docker push ghcr.io/yourusername/lobehub:latest
+```
+
+#### Alibaba Cloud Container Registry
+
+```bash
+# Login to Alibaba Cloud
+docker login --username=your-aliyun-username registry.cn-hangzhou.aliyuncs.com
+
+# Tag and push
+docker tag lobehub:local registry.cn-hangzhou.aliyuncs.com/your-namespace/lobehub:latest
+docker push registry.cn-hangzhou.aliyuncs.com/your-namespace/lobehub:latest
+```
+
+## Differences from Official Images
+
+Self-built images are functionally identical to official images on Docker Hub (`lobehub/lobehub`). The main differences are:
+
+| Item | Official Image | Self-built |
+| --- | --- | --- |
+| **Source** | Automatically built by GitHub Actions | Built locally |
+| **Validation** | Tested by official team | Self-testing required |
+| **Updates** | Automatically published new versions | Manual rebuild required |
+| **Customization** | Cannot modify | Can modify source code |
+| **Build Time** | No waiting | 15-30 minutes |
+| **Storage Location** | lobehub/lobehub | Under your account |
+
+## Next Steps
+
+- Learn how to [configure environment variables](/docs/self-hosting/environment-variables)
+- See the complete guide for [deploying with Docker](/docs/self-hosting/platform/docker)
+- Learn how to [deploy with Docker Compose](/docs/self-hosting/platform/docker-compose)
