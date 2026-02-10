@@ -231,6 +231,129 @@ Ensure:
 2. If the database is local, use `host.docker.internal` instead of `localhost`
 3. Database is started and accessible
 
+## Uploading to Your Own Docker Hub
+
+If you want to upload your built image to your own Docker Hub account for use on other servers or sharing with your team, follow these steps:
+
+### 1. Login to Docker Hub
+
+First, login with your Docker Hub account:
+
+```bash
+docker login
+```
+
+You'll be prompted to enter your Docker Hub username and password.
+
+<Callout type="tip">
+  It's recommended to use a [Docker Hub Access Token](https://hub.docker.com/settings/security) instead of your password for better security.
+</Callout>
+
+### 2. Tag the Image
+
+Tag your built image with your Docker Hub repository format:
+
+```bash
+# Format: docker tag local-image-name yourusername/repository-name:tag
+docker tag lobehub:local yourusername/lobehub:latest
+docker tag lobehub:local yourusername/lobehub:v1.0.0
+```
+
+**Tag Naming Suggestions:**
+
+- `latest` - Latest version
+- `v1.0.0` - Specific version number
+- `20240210` - Date tag
+- `dev` - Development version
+
+You can add multiple tags to the same image.
+
+### 3. Push the Image
+
+Push the tagged image to Docker Hub:
+
+```bash
+docker push yourusername/lobehub:latest
+docker push yourusername/lobehub:v1.0.0
+```
+
+The push process may take a few minutes, depending on your network speed and image size (approximately 600MB).
+
+### 4. Use on Other Servers
+
+After a successful push, you can pull and use your image on any server:
+
+```bash
+docker pull yourusername/lobehub:latest
+
+docker run -d \
+  -p 3210:3210 \
+  --env-file lobe-chat.env \
+  --name lobehub \
+  yourusername/lobehub:latest
+```
+
+### Complete Example
+
+Here's the complete workflow from build to push:
+
+```bash
+# 1. Build the image
+npm run self-hosting:docker
+
+# 2. Login to Docker Hub
+docker login
+
+# 3. Tag the image (replace yourusername with your username)
+docker tag lobehub:local yourusername/lobehub:latest
+docker tag lobehub:local yourusername/lobehub:v2.0.0
+
+# 4. Push to Docker Hub
+docker push yourusername/lobehub:latest
+docker push yourusername/lobehub:v2.0.0
+
+# 5. Verify upload (optional)
+docker pull yourusername/lobehub:latest
+```
+
+### Private Repositories
+
+If you don't want to share your image publicly, you can create a private repository on Docker Hub:
+
+1. Visit [Docker Hub](https://hub.docker.com)
+2. When creating a new repository, select "Private"
+3. Use the same push commands
+
+<Callout type="warning">
+  Free Docker Hub accounts can only create one private repository. For more private repositories, consider using other container registry services like Alibaba Cloud Container Registry, Tencent Cloud TCR, GitHub Container Registry, etc.
+</Callout>
+
+### Using Other Container Registries
+
+Besides Docker Hub, you can also use other container registries:
+
+#### GitHub Container Registry (ghcr.io)
+
+```bash
+# Login to GitHub
+echo $GITHUB_TOKEN | docker login ghcr.io -u USERNAME --password-stdin
+
+# Tag and push
+docker tag lobehub:local ghcr.io/yourusername/lobehub:latest
+docker push ghcr.io/yourusername/lobehub:latest
+```
+
+#### Alibaba Cloud Container Registry
+
+```bash
+# Login to Alibaba Cloud
+docker login --username=your-aliyun-username registry.cn-hangzhou.aliyuncs.com
+
+# Tag and push
+docker tag lobehub:local registry.cn-hangzhou.aliyuncs.com/your-namespace/lobehub:latest
+docker push registry.cn-hangzhou.aliyuncs.com/your-namespace/lobehub:latest
+```
+
 ## Differences from Official Images
 
 Self-built images are functionally identical to official images on Docker Hub (`lobehub/lobehub`). The main differences are:
@@ -242,6 +365,7 @@ Self-built images are functionally identical to official images on Docker Hub (`
 | **Updates** | Automatically published new versions | Manual rebuild required |
 | **Customization** | Cannot modify | Can modify source code |
 | **Build Time** | No waiting | 15-30 minutes |
+| **Storage Location** | lobehub/lobehub | Under your account |
 
 ## Next Steps
 
