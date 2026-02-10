@@ -1,0 +1,250 @@
+---
+title: 自己构建 Docker 镜像
+description: 学习如何从源代码构建 LobeHub 的 Docker 镜像，包括构建步骤、参数配置和故障排除。
+tags:
+  - Docker
+  - 构建镜像
+  - 自定义部署
+  - 源代码编译
+---
+
+# 自己构建 Docker 镜像
+
+本指南将教你如何从源代码构建 LobeHub 的 Docker 镜像。如果你需要自定义构建或者想要使用特定的代码版本，自己构建镜像会很有用。
+
+## 前置要求
+
+在开始之前，请确保你的系统已安装：
+
+- **Docker**：版本 20.10 或更高
+- **Git**：用于克隆仓库
+- 至少 **8GB** 的可用内存（用于构建过程）
+- 至少 **10GB** 的可用磁盘空间
+
+## 快速开始
+
+### 1. 克隆仓库
+
+首先，克隆 LobeHub 仓库到本地：
+
+```bash
+git clone https://github.com/lobehub/lobe-chat.git
+cd lobe-chat
+```
+
+### 2. 使用构建脚本
+
+LobeHub 提供了便捷的构建脚本：
+
+#### 国际版本
+
+```bash
+npm run self-hosting:docker
+```
+
+这将构建一个名为 `lobehub:local` 的镜像。
+
+#### 中国大陆版本（使用国内镜像加速）
+
+如果你在中国大陆，建议使用此命令以加快构建速度：
+
+```bash
+npm run self-hosting:docker-cn
+```
+
+这将构建一个名为 `lobehub-local` 的镜像，并使用国内镜像源。
+
+### 3. 手动构建（高级）
+
+你也可以直接使用 Docker 命令进行更精细的控制：
+
+```bash
+docker build -t lobehub:custom .
+```
+
+#### 使用构建参数
+
+Dockerfile 支持多个构建参数来自定义构建过程：
+
+```bash
+docker build \
+  --build-arg USE_CN_MIRROR=true \
+  --build-arg NEXT_PUBLIC_BASE_PATH=/chat \
+  --build-arg FEATURE_FLAGS=enable_new_feature \
+  -t lobehub:custom \
+  .
+```
+
+**可用的构建参数：**
+
+| 参数 | 说明 | 默认值 | 示例 |
+| --- | --- | --- | --- |
+| `USE_CN_MIRROR` | 使用中国镜像源加速构建 | `false` | `true` |
+| `NODEJS_VERSION` | Node.js 版本 | `24` | `24` |
+| `NEXT_PUBLIC_BASE_PATH` | 应用的基础路径 | - | `/chat` |
+| `FEATURE_FLAGS` | 功能标志 | - | `enable_experimental` |
+| `NEXT_PUBLIC_SENTRY_DSN` | Sentry DSN（错误追踪） | - | `https://xxx@sentry.io/xxx` |
+
+<Callout type="tip">
+  **关于 USE_CN_MIRROR：** 此参数会切换到国内的 npm 镜像源（npmmirror.com）和
+  Debian 镜像源（USTC），大幅提升在中国大陆的构建速度。
+</Callout>
+
+## 运行构建的镜像
+
+构建完成后，你可以使用以下命令运行镜像：
+
+### 基础运行
+
+```bash
+docker run -d \
+  -p 3210:3210 \
+  -e DATABASE_URL=postgres://postgres:password@host.docker.internal:5432/postgres \
+  -e KEY_VAULTS_SECRET=your-secret-key \
+  -e AUTH_SECRET=your-auth-secret \
+  -e JWKS_KEY='{"keys":[...]}' \
+  -e APP_URL=http://localhost:3210 \
+  --name lobehub \
+  lobehub:local
+```
+
+### 使用环境变量文件
+
+更推荐的做法是使用 `.env` 文件：
+
+```bash
+# 1. 创建 lobe-chat.env 文件
+cat > lobe-chat.env << EOF
+APP_URL=http://localhost:3210
+DATABASE_URL=postgres://postgres:password@host.docker.internal:5432/postgres
+KEY_VAULTS_SECRET=your-secret-key
+AUTH_SECRET=your-auth-secret
+JWKS_KEY={"keys":[...]}
+# 添加其他环境变量...
+EOF
+
+# 2. 使用环境变量文件运行
+docker run -d \
+  -p 3210:3210 \
+  --env-file lobe-chat.env \
+  --name lobehub \
+  lobehub:local
+```
+
+<Callout type="warning">
+  请确保提供所有必需的环境变量。关于环境变量的完整列表，请参阅
+  [环境变量文档](/zh/docs/self-hosting/environment-variables)。
+</Callout>
+
+## 构建优化技巧
+
+### 1. 使用 Docker 构建缓存
+
+Docker 会自动缓存构建层，重新构建时会更快：
+
+```bash
+# 清除构建缓存（如果需要完全重新构建）
+docker builder prune
+
+# 不使用缓存构建
+docker build --no-cache -t lobehub:local .
+```
+
+### 2. 多阶段构建优化
+
+LobeHub 的 Dockerfile 使用了多阶段构建来减小最终镜像大小：
+
+- **base 阶段**：准备基础环境和依赖
+- **builder 阶段**：安装依赖并构建应用
+- **app 阶段**：收集运行所需的文件
+- **production 阶段**：最终的精简镜像（使用 `scratch`）
+
+最终镜像大小约为 **600MB**，相比传统构建显著减小。
+
+### 3. 构建特定版本
+
+如果你想构建特定版本的 LobeHub：
+
+```bash
+# 克隆仓库
+git clone https://github.com/lobehub/lobe-chat.git
+cd lobe-chat
+
+# 切换到特定版本标签
+git checkout v1.0.0
+
+# 构建
+npm run self-hosting:docker
+```
+
+## 故障排除
+
+### 构建失败：内存不足
+
+**错误信息：**
+
+```
+FATAL ERROR: Reached heap limit Allocation failed - JavaScript heap out of memory
+```
+
+**解决方案：**
+
+Dockerfile 已经设置了 `NODE_OPTIONS=--max-old-space-size=8192`，但如果仍然遇到问题，请确保 Docker 分配了足够的内存（至少 8GB）。
+
+在 Docker Desktop 中：Settings → Resources → Memory，调整为至少 8GB。
+
+### 构建失败：网络超时
+
+**错误信息：**
+
+```
+npm ERR! network request timeout
+```
+
+**解决方案：**
+
+1. 使用国内镜像构建（中国用户）：
+
+```bash
+npm run self-hosting:docker-cn
+```
+
+2. 或设置 Docker 代理
+
+### 镜像体积过大
+
+LobeHub 使用多阶段构建，最终镜像应该在 600MB 左右。如果镜像体积异常大：
+
+1. 确保使用的是最新的 Dockerfile
+2. 检查是否有 `.dockerignore` 文件（应该排除 `node_modules`, `.next` 等）
+3. 清理 Docker 构建缓存：
+
+```bash
+docker builder prune -a
+```
+
+### 运行时错误：数据库连接失败
+
+确保：
+
+1. 数据库 URL 正确
+2. 如果数据库在本地，使用 `host.docker.internal` 而不是 `localhost`
+3. 数据库已启动并可访问
+
+## 与官方镜像的区别
+
+自己构建的镜像与 Docker Hub 上的官方镜像（`lobehub/lobehub`）在功能上完全相同。主要区别在于：
+
+| 项目 | 官方镜像 | 自己构建 |
+| --- | --- | --- |
+| **来源** | GitHub Actions 自动构建 | 本地构建 |
+| **验证** | 官方团队测试 | 需要自行测试 |
+| **更新** | 自动发布新版本 | 需要手动重新构建 |
+| **自定义** | 无法修改 | 可以修改源代码 |
+| **构建时间** | 无需等待 | 15-30 分钟 |
+
+## 下一步
+
+- 了解如何[配置环境变量](/zh/docs/self-hosting/environment-variables)
+- 查看[使用 Docker 部署](/zh/docs/self-hosting/platform/docker)的完整指南
+- 学习如何[使用 Docker Compose](/zh/docs/self-hosting/platform/docker-compose) 部署完整服务
