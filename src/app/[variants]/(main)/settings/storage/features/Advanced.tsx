@@ -119,7 +119,7 @@ const AdvancedActions = () => {
         layout: 'horizontal',
         minWidth: undefined,
       },
-      ...(enableBusinessFeatures ? [renderExportButtonFormItem()] : []),
+      renderExportButtonFormItem(),
       {
         children: (
           <Button danger onClick={handleClear} type={'primary'}>

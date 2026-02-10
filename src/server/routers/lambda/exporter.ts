@@ -8,17 +8,20 @@ import { SessionModel } from '@/database/models/session';
 import { DataExporterRepos } from '@/database/repositories/dataExporter';
 import { authedProcedure, router } from '@/libs/trpc/lambda';
 import { serverDatabase } from '@/libs/trpc/lambda/middleware';
+import { FileService } from '@/server/services/file';
 import { type ExportDatabaseData } from '@/types/export';
+import { uuid } from '@/utils/uuid';
 
 const exportProcedure = authedProcedure.use(serverDatabase).use(async (opts) => {
   const { ctx } = opts;
   const dataExporterRepos = new DataExporterRepos(ctx.serverDB, ctx.userId);
   const drizzleMigration = new DrizzleMigrationModel(ctx.serverDB);
+  const fileService = new FileService(ctx.serverDB, ctx.userId);
   const messageModel = new MessageModel(ctx.serverDB, ctx.userId);
   const sessionModel = new SessionModel(ctx.serverDB, ctx.userId);
 
   return opts.next({
-    ctx: { dataExporterRepos, drizzleMigration, messageModel, sessionModel },
+    ctx: { dataExporterRepos, drizzleMigration, fileService, messageModel, sessionModel },
   });
 });
 
@@ -172,6 +175,24 @@ export const exporterRouter = router({
   exportData: exportProcedure.mutation(async ({ ctx }): Promise<ExportDatabaseData> => {
     const data = await ctx.dataExporterRepos.export(5);
     const schemaHash = await ctx.drizzleMigration.getLatestMigrationHash();
+
+    const totalLength = Object.values(data)
+      .map((tableData) => tableData.length)
+      .reduce((sum, length) => sum + length, 0);
+
+    if (totalLength >= 500) {
+      const pathname = `export_config/${uuid()}.json`;
+
+      await ctx.fileService.uploadContent(
+        pathname,
+        JSON.stringify({ data, mode: 'postgres', schemaHash }),
+      );
+
+      const url = await ctx.fileService.getFullFileUrl(pathname);
+
+      return { data: {}, schemaHash, url };
+    }
+
     return { data, schemaHash };
   }),
 
