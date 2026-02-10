@@ -54,6 +54,12 @@ const IMPORT_TABLE_CONFIG: TableImportConfig[] = [
     uniqueConstraints: ['id'],
   },
   {
+    conflictStrategy: 'skip',
+    preserveId: true,
+    table: 'apiKeys',
+    uniqueConstraints: ['id', 'key'],
+  },
+  {
     conflictStrategy: 'merge',
     isCompositeKey: true,
     table: 'userInstalledPlugins',
@@ -87,6 +93,12 @@ const IMPORT_TABLE_CONFIG: TableImportConfig[] = [
     },
     table: 'agents',
     uniqueConstraints: ['slug'],
+  },
+  {
+    conflictStrategy: 'skip',
+    preserveId: true,
+    table: 'agentSkills',
+    uniqueConstraints: ['id'],
   },
   {
     // Special processing for slug field
@@ -134,6 +146,42 @@ const IMPORT_TABLE_CONFIG: TableImportConfig[] = [
         sourceTable: 'topics',
       },
     ],
+    selfReferences: [
+      {
+        field: 'parentGroupId',
+      },
+    ],
+    table: 'messageGroups',
+  },
+  {
+    conflictStrategy: 'skip',
+    preserveId: true,
+    relations: [
+      {
+        field: 'messageId',
+        sourceTable: 'messages',
+      },
+    ],
+    table: 'messageQueries',
+    uniqueConstraints: ['id'],
+  },
+  {
+    conflictStrategy: 'skip',
+    isCompositeKey: true, // Uses composite primary key [id, queryId, chunkId]
+    relations: [
+      {
+        field: 'messageId',
+        sourceTable: 'messages',
+      },
+      {
+        field: 'queryId',
+        sourceTable: 'messageQueries',
+      },
+    ],
+    table: 'messageQueryChunks',
+    uniqueConstraints: ['messageId', 'queryId', 'chunkId'],
+  },
+  {
     selfReferences: [
       {
         field: 'parentThreadId',
@@ -195,24 +243,6 @@ const IMPORT_TABLE_CONFIG: TableImportConfig[] = [
     ],
     table: 'messageChunks',
   },
-  {
-    isCompositeKey: true, // Uses composite primary key [id, queryId, chunkId]
-    relations: [
-      {
-        field: 'id',
-        sourceTable: 'messages',
-      },
-      {
-        field: 'queryId',
-        sourceTable: 'messageQueries',
-      },
-      {
-        field: 'chunkId',
-        sourceTable: 'chunks',
-      },
-    ],
-    table: 'messageQueryChunks',
-  },
   // {
   //   relations: [
   //     {
@@ -237,21 +267,6 @@ const IMPORT_TABLE_CONFIG: TableImportConfig[] = [
     ],
     table: 'messageTranslates',
   },
-  // {
-  //   conflictStrategy: 'skip',
-  //   preserveId: true, // Uses message ID as primary key
-  //   relations: [
-  //     {
-  //       field: 'id',
-  //       sourceTable: 'messages',
-  //     },
-  //     {
-  //       field: 'fileId',
-  //       sourceTable: 'files',
-  //     },
-  //   ],
-  //   table: 'messageTTS',
-  // },
 ];
 
 export class DataImporterRepos {

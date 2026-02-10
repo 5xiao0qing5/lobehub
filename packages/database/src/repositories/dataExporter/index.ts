@@ -24,10 +24,11 @@ export const DATA_EXPORT_CONFIG = {
   baseTables: [
     // { table: 'users', userField: 'id' },
     { table: 'userSettings', userField: 'id' },
+    { table: 'apiKeys' },
     { table: 'userInstalledPlugins' },
     { table: 'agents' },
-    // { table: 'agentsFiles' },
-    // { table: 'agentsKnowledgeBases' },
+    { table: 'agentSkills' },
+    { table: 'messageGroups' },
     // { table: 'agentsToSessions' },
     { table: 'aiModels' },
     { table: 'aiProviders' },
@@ -36,19 +37,12 @@ export const DATA_EXPORT_CONFIG = {
     // { table: 'chunks' },
     // { table: 'unstructuredChunks' },
     // { table: 'embeddings' },
-    // { table: 'files' },
     // { table: 'fileChunks' },
-    // { table: 'filesToSessions' },
-    // { table: 'knowledgeBases' },
-    // { table: 'knowledgeBaseFiles' },
     { table: 'messageChunks' },
     { table: 'messagePlugins' },
-    // { table: 'messageQueryChunks' },
-    // { table: 'messageQueries' },
+    { table: 'messageQueries' },
     { table: 'messageTranslates' },
-    // { table: 'messageTTS' },
     { table: 'messages' },
-    // { table: 'messagesFiles' },
 
     // next auth tables won't be included
     // { table: 'nextauthAccounts' },
@@ -71,6 +65,14 @@ export const DATA_EXPORT_CONFIG = {
         { field: 'sessionId', sourceField: 'id', sourceTable: 'sessions' },
       ],
       table: 'agentsToSessions',
+    },
+
+    {
+      relations: [
+        { field: 'id', sourceField: 'id', sourceTable: 'messages' },
+        { field: 'queryId', sourceField: 'id', sourceTable: 'messageQueries' },
+      ],
+      table: 'messageQueryChunks',
     },
 
     // {
