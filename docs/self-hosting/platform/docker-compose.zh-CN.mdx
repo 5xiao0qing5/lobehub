@@ -252,6 +252,64 @@ mv .env.zh-CN.example .env
   [使用服务端数据库部署](/zh/docs/self-hosting/server-database) 。
 </Callout>
 
+### 从源码构建并使用 Docker Compose
+
+如果你希望使用自己修改后的代码（而不是官方镜像），可以按以下步骤操作。
+
+<Steps>
+  ### 拉取源码并切换到你的分支
+
+  ```sh
+  git clone https://github.com/lobehub/lobe-chat.git
+  cd lobe-chat
+  git checkout <your-branch>
+  ```
+
+  ### 在仓库根目录构建镜像
+
+  ```sh
+  docker build -t lobehub/lobe-chat:local .
+  ```
+
+  ### 使用部署模板并改为本地镜像
+
+  ```sh
+  cp docker-compose/deploy/docker-compose.yml ./docker-compose.yml
+  cp docker-compose/deploy/.env.zh-CN.example ./.env
+  ```
+
+  打开 `docker-compose.yml`，将 `lobehub` 服务里的镜像改为你本地构建的镜像：
+
+  ```yaml
+  services:
+    lobehub:
+      image: lobehub/lobe-chat:local
+  ```
+
+  如果模板里存在 `build:` 字段，请删除或注释掉它，避免与 `image:` 同时生效造成混淆。
+
+  ### 首次启动并初始化
+
+  ```sh
+  docker compose up -d
+  ```
+
+  ### 查看服务日志
+
+  ```sh
+  docker compose logs -f lobehub
+  ```
+
+  ### 代码更新后的重建流程
+
+  每次修改代码后，重新构建并重启服务即可生效：
+
+  ```sh
+  docker build -t lobehub/lobe-chat:local .
+  docker compose up -d --force-recreate lobehub
+  ```
+</Steps>
+
 ### 预备知识
 
 一般来讲，想要完整的运行 LobeHub，你需要至少拥有如下三个服务：
