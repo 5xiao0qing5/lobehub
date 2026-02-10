@@ -37,12 +37,17 @@ const ProSettingsStep = memo<ProSettingsStepProps>(({ onBack }) => {
   const [isNavigating, setIsNavigating] = useState(false);
   const isNavigatingRef = useRef(false);
 
-  const handleFinish = useCallback(() => {
+  const handleFinish = useCallback(async () => {
     if (isNavigatingRef.current) return;
     isNavigatingRef.current = true;
     setIsNavigating(true);
-    finishOnboarding();
-    navigate('/');
+    try {
+      await finishOnboarding();
+      navigate('/', { replace: true });
+    } catch {
+      isNavigatingRef.current = false;
+      setIsNavigating(false);
+    }
   }, [finishOnboarding, navigate]);
 
   const handleBack = useCallback(() => {
