@@ -52,7 +52,7 @@ npm run self-hosting:docker
 npm run self-hosting:docker-cn
 ```
 
-这将构建一个名为 `lobehub-local` 的镜像，并使用国内镜像源。
+这将构建一个名为 `lobehub-local` （标签为 `latest`）的镜像，并使用国内镜像源。
 
 ### 3. 手动构建（高级）
 
@@ -154,12 +154,12 @@ docker build --no-cache -t lobehub:local .
 
 LobeHub 的 Dockerfile 使用了多阶段构建来减小最终镜像大小：
 
-- **base 阶段**：准备基础环境和依赖
+- **base 阶段**：准备基础环境和依赖，包括 Node.js 运行时和必要的系统库
 - **builder 阶段**：安装依赖并构建应用
 - **app 阶段**：收集运行所需的文件
-- **production 阶段**：最终的精简镜像（使用 `scratch`）
+- **production 阶段**：最终的精简镜像（使用 `scratch` 作为基础，但包含从 app 阶段复制的完整运行环境）
 
-最终镜像大小约为 **600MB**，相比传统构建显著减小。
+这是一种"distroless"（无发行版）构建模式，最终镜像只包含运行所需的最小文件集，约为 **600MB**。
 
 ### 3. 构建特定版本
 

@@ -52,7 +52,7 @@ If you're in mainland China, use this command for faster builds:
 npm run self-hosting:docker-cn
 ```
 
-This will build an image named `lobehub-local` using domestic mirror sources.
+This will build an image named `lobehub-local` (with tag `latest`) using domestic mirror sources.
 
 ### 3. Manual Build (Advanced)
 
@@ -154,12 +154,12 @@ docker build --no-cache -t lobehub:local .
 
 LobeHub's Dockerfile uses multi-stage builds to reduce final image size:
 
-- **base stage**: Prepare base environment and dependencies
+- **base stage**: Prepare base environment and dependencies, including Node.js runtime and necessary system libraries
 - **builder stage**: Install dependencies and build the application
 - **app stage**: Collect files needed for runtime
-- **production stage**: Final minimized image (using `scratch`)
+- **production stage**: Final minimized image (using `scratch` as base, but includes complete runtime environment copied from app stage)
 
-The final image size is approximately **600MB**, significantly smaller than traditional builds.
+This is a "distroless" build pattern where the final image contains only the minimal set of files needed to run, approximately **600MB**.
 
 ### 3. Build Specific Versions
 
