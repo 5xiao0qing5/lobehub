@@ -328,5 +328,61 @@ describe('DataExporterRepos', () => {
       expect(result.sessions[0]).not.toHaveProperty('userId', anotherUserId);
       expect(result.sessions[0]).toHaveProperty('id', 'another-session-id');
     });
+
+    it('should export only conversation data when exportType is conversations', async () => {
+      const dataExporter = new DataExporterRepos(db, userId);
+
+      const result = await dataExporter.export(10, 'conversations');
+
+      // Should include conversation-related tables
+      expect(result).toHaveProperty('sessions');
+      expect(result.sessions).toHaveLength(1);
+      expect(result).toHaveProperty('topics');
+      expect(result.topics).toHaveLength(1);
+      expect(result).toHaveProperty('messages');
+      expect(result.messages).toHaveLength(1);
+      expect(result).toHaveProperty('agents');
+      expect(result.agents).toHaveLength(1);
+      expect(result).toHaveProperty('agentsToSessions');
+      expect(result.agentsToSessions).toHaveLength(1);
+
+      // Should NOT include settings-related tables
+      expect(result).not.toHaveProperty('userSettings');
+      expect(result).not.toHaveProperty('apiKeys');
+      expect(result).not.toHaveProperty('aiModels');
+      expect(result).not.toHaveProperty('aiProviders');
+      expect(result).not.toHaveProperty('userInstalledPlugins');
+    });
+
+    it('should export only settings data when exportType is settings', async () => {
+      const dataExporter = new DataExporterRepos(db, userId);
+
+      const result = await dataExporter.export(10, 'settings');
+
+      // Should include settings-related tables
+      expect(result).toHaveProperty('userSettings');
+      expect(result.userSettings).toHaveLength(1);
+
+      // Should NOT include conversation-related tables
+      expect(result).not.toHaveProperty('sessions');
+      expect(result).not.toHaveProperty('topics');
+      expect(result).not.toHaveProperty('messages');
+      expect(result).not.toHaveProperty('agents');
+      expect(result).not.toHaveProperty('agentsToSessions');
+    });
+
+    it('should export all data when exportType is all', async () => {
+      const dataExporter = new DataExporterRepos(db, userId);
+
+      const result = await dataExporter.export(10, 'all');
+
+      // Should include both conversation and settings tables
+      expect(result).toHaveProperty('sessions');
+      expect(result).toHaveProperty('topics');
+      expect(result).toHaveProperty('messages');
+      expect(result).toHaveProperty('agents');
+      expect(result).toHaveProperty('userSettings');
+      expect(result).toHaveProperty('agentsToSessions');
+    });
   });
 });

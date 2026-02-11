@@ -4,7 +4,7 @@ import { BRANDING_NAME } from '@lobechat/business-const';
 import { DEFAULT_SETTINGS } from '@lobechat/config';
 import { type FormGroupItemType } from '@lobehub/ui';
 import { Button, Form, Icon } from '@lobehub/ui';
-import { App, Switch } from 'antd';
+import { App, Dropdown, Switch } from 'antd';
 import isEqual from 'fast-deep-equal';
 import { HardDriveDownload, HardDriveUpload } from 'lucide-react';
 import { useCallback } from 'react';
@@ -22,6 +22,7 @@ import { useSessionStore } from '@/store/session';
 import { useToolStore } from '@/store/tool';
 import { useUserStore } from '@/store/user';
 import { settingsSelectors } from '@/store/user/selectors';
+import { type DataExportType } from '@/types/export';
 
 const AdvancedActions = () => {
   const { t } = useTranslation('setting');
@@ -88,23 +89,45 @@ const AdvancedActions = () => {
     title: t('analytics.title'),
   };
 
+  const handleExport = useCallback(
+    async (exportType: DataExportType) => {
+      try {
+        await configService.exportAll(exportType);
+      } catch (error) {
+        message.error(error instanceof Error ? error.message : 'Export failed');
+      }
+    },
+    [message],
+  );
+
   const renderExportButtonFormItem = () => {
     return {
       children: (
-        <Button
-          icon={<Icon icon={HardDriveUpload} />}
-          onClick={() => {
-            void (async () => {
-              try {
-                await configService.exportAll();
-              } catch (error) {
-                message.error(error instanceof Error ? error.message : 'Export failed');
-              }
-            })();
+        <Dropdown
+          menu={{
+            items: [
+              {
+                key: 'all',
+                label: t('storage.actions.export.exportType.all'),
+                onClick: () => handleExport('all'),
+              },
+              {
+                key: 'conversations',
+                label: t('storage.actions.export.exportType.conversations'),
+                onClick: () => handleExport('conversations'),
+              },
+              {
+                key: 'settings',
+                label: t('storage.actions.export.exportType.settings'),
+                onClick: () => handleExport('settings'),
+              },
+            ],
           }}
         >
-          {t('storage.actions.export.button')}
-        </Button>
+          <Button icon={<Icon icon={HardDriveUpload} />}>
+            {t('storage.actions.export.button')}
+          </Button>
+        </Dropdown>
       ),
       label: t('storage.actions.export.title'),
       layout: 'horizontal',
