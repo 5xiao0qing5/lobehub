@@ -5,7 +5,7 @@ import {
   DropdownMenuRoot,
   DropdownMenuTrigger,
 } from '@lobehub/ui';
-import { memo, useCallback, useState } from 'react';
+import { memo, useCallback, useEffect, useState } from 'react';
 
 import { useIsMobile } from '@/hooks/useIsMobile';
 
@@ -27,6 +27,17 @@ const ModelSwitchPanel = memo<ModelSwitchPanelProps>(
     const isMobile = useIsMobile();
     const isOpen = open ?? internalOpen;
 
+    useEffect(() => {
+      if (!isMobile || !isOpen || typeof document === 'undefined') return;
+
+      const timer = window.setTimeout(() => {
+        const activeElement = document.activeElement;
+        if (activeElement instanceof HTMLElement) activeElement.blur();
+      }, 0);
+
+      return () => window.clearTimeout(timer);
+    }, [isMobile, isOpen]);
+
     const handleOpenChange = useCallback(
       (nextOpen: boolean) => {
         setInternalOpen(nextOpen);
@@ -40,14 +51,7 @@ const ModelSwitchPanel = memo<ModelSwitchPanelProps>(
         <DropdownMenuTrigger openOnHover>{children}</DropdownMenuTrigger>
         <DropdownMenuPortal>
           <DropdownMenuPositioner hoverTrigger placement={placement}>
-            <DropdownMenuPopup
-              className={styles.container}
-              onOpenAutoFocus={(event) => {
-                if (!isMobile) return;
-
-                event.preventDefault();
-              }}
-            >
+            <DropdownMenuPopup className={styles.container}>
               <PanelContent
                 model={modelProp}
                 provider={providerProp}
