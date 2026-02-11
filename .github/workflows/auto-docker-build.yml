@@ -6,7 +6,7 @@ name: Auto Build Docker Image
 on:
   push:
     branches:
-      - main
+    # - main
       - next
     # 忽略以下路径的更改
     paths-ignore:
@@ -32,7 +32,7 @@ env:
   # 默认使用原仓库的镜像名称，用户需要在自己的 fork 中修改为自己的 Docker Hub 用户名和仓库名
   # Default to original repo image name, users should modify this in their fork
   # 格式: dockerhub-username/repository-name
-  REGISTRY_IMAGE: lobehub/lobehub
+  REGISTRY_IMAGE: qing55525/lobehub-qing
 
 jobs:
   build:
