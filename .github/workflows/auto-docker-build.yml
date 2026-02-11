@@ -4,16 +4,16 @@ name: Auto Build Docker Image
 # Automatically build and push Docker images on every push to main branches
 
 on:
-  push:
-    branches:
-    # - main
-      - next
-    # 忽略以下路径的更改
-    paths-ignore:
-      - '**.md'
-      - 'docs/**'
-      - '.github/workflows/**'
-      - '!.github/workflows/auto-docker-build.yml'
+  # push:
+  #   branches:
+  #   # - main
+  #     - next
+  #   # 忽略以下路径的更改
+  #   paths-ignore:
+  #     - '**.md'
+  #     - 'docs/**'
+  #     - '.github/workflows/**'
+  #     - '!.github/workflows/auto-docker-build.yml'
   workflow_dispatch:
     inputs:
       version_suffix:
