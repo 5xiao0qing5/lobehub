@@ -1,0 +1,11 @@
+/* Custom styles for LobeHub documentation */
+:root {
+  --md-primary-fg-color: #6366f1;
+  --md-accent-fg-color: #6366f1;
+}
+.md-typeset .grid.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 1rem;
+  margin: 1rem 0;
+}
