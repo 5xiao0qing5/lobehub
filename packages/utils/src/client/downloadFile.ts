@@ -1,47 +1,62 @@
+const triggerLinkDownload = (url: string, fileName?: string) => {
+  const link = document.createElement('a');
+  link.href = url;
+  link.style.display = 'none';
+  link.rel = 'noopener noreferrer';
+
+  if (fileName) {
+    link.download = fileName;
+  }
+
+  document.body.append(link);
+  link.click();
+  link.remove();
+};
+
 export const downloadFile = async (
   url: string,
   fileName: string,
   fallbackToOpen: boolean = true,
 ) => {
+  const parsedUrl = new URL(url, window.location.href);
+  const parsedUrlString = parsedUrl.toString();
+  const isSameOrigin = parsedUrl.origin === window.location.origin;
+
+  // Cross-origin downloads should use direct navigation instead of fetch.
+  // This avoids CORS/credential constraints in self-hosted deployments.
+  if (!isSameOrigin) {
+    triggerLinkDownload(parsedUrlString);
+    return;
+  }
+
   try {
-    // Use better CORS handling similar to download-image.ts
-    const response = await fetch(url, {
-      // Avoid image disk cache which can cause incorrect CORS headers
+    const response = await fetch(parsedUrlString, {
       cache: 'no-store',
-
-      credentials: 'omit',
-
+      credentials: 'include',
       mode: 'cors',
     });
 
     if (!response.ok) {
-      throw new Error(`Failed to fetch image: ${response.status} ${response.statusText}`);
+      throw new Error(`Failed to fetch download file: ${response.status} ${response.statusText}`);
+    }
+
+    const contentType = response.headers.get('content-type') || '';
+    if (contentType.includes('text/html')) {
+      throw new Error('Expected downloadable file, got HTML response instead');
     }
 
     const blob = await response.blob();
-
-    // Create download link
     const blobUrl = window.URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = blobUrl;
-    link.download = fileName;
-    link.style.display = 'none';
 
-    // Trigger download
-    document.body.append(link);
-    link.click();
+    triggerLinkDownload(blobUrl, fileName);
 
-    // Cleanup
-    link.remove();
     window.URL.revokeObjectURL(blobUrl);
   } catch (error) {
     console.log('Download failed:', error);
 
-    // Fallback: open in new tab if enabled
     if (fallbackToOpen) {
-      window.open(url);
+      window.open(parsedUrlString);
     } else {
-      // Re-throw the error if fallback is disabled
       throw error;
     }
   }
