@@ -32,6 +32,8 @@ export const downloadFile = async (
     return;
   }
 
+  let shouldFallbackToOpen = fallbackToOpen;
+
   try {
     const response = await fetch(parsedUrlString, {
       cache: 'no-store',
@@ -45,6 +47,10 @@ export const downloadFile = async (
 
     const contentType = response.headers.get('content-type') || '';
     if (contentType.includes('text/html')) {
+      // HTML responses usually indicate redirects (for example to a login page).
+      // Falling back to direct navigation would download the same HTML content,
+      // often with a misleading file name like `*.json`.
+      shouldFallbackToOpen = false;
       throw new Error('Expected downloadable file, got HTML response instead');
     }
 
@@ -57,7 +63,7 @@ export const downloadFile = async (
   } catch (error) {
     console.log('Download failed:', error);
 
-    if (fallbackToOpen) {
+    if (shouldFallbackToOpen) {
       triggerLinkDownload(parsedUrlString, fileName, true);
     } else {
       throw error;
