@@ -10,7 +10,6 @@ import { authedProcedure, router } from '@/libs/trpc/lambda';
 import { serverDatabase } from '@/libs/trpc/lambda/middleware';
 import { FileService } from '@/server/services/file';
 import { type ExportDatabaseData } from '@/types/export';
-import { uuid } from '@/utils/uuid';
 
 const exportProcedure = authedProcedure.use(serverDatabase).use(async (opts) => {
   const { ctx } = opts;
@@ -174,23 +173,6 @@ export const exporterRouter = router({
   exportData: exportProcedure.mutation(async ({ ctx }): Promise<ExportDatabaseData> => {
     const data = await ctx.dataExporterRepos.export(5);
     const schemaHash = await ctx.drizzleMigration.getLatestMigrationHash();
-
-    const totalLength = Object.values(data)
-      .map((tableData) => tableData.length)
-      .reduce((sum, length) => sum + length, 0);
-
-    if (totalLength >= 500) {
-      const pathname = `export_config/${uuid()}.json`;
-
-      await ctx.fileService.uploadContent(
-        pathname,
-        JSON.stringify({ data, mode: 'postgres', schemaHash }),
-      );
-
-      const url = await ctx.fileService.getFullFileUrl(pathname);
-
-      return { data: {}, schemaHash, url };
-    }
 
     return { data, schemaHash };
   }),

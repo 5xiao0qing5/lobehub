@@ -37,9 +37,7 @@ describe('useOpenChatSettings', () => {
       result.current();
     });
 
-    expect(mockNavigate).toHaveBeenCalledWith(
-      `/chat/settings?session=123&showMobileWorkspace=true`,
-    );
+    expect(mockNavigate).toHaveBeenCalledWith(`/agent/123/settings`);
   });
 
   it('opens desktop agent settings overlay when not on mobile', () => {

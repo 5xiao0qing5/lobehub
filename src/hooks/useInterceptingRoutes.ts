@@ -13,8 +13,7 @@ export const useOpenChatSettings = (tab: ChatSettingsTabs = ChatSettingsTabs.Met
   const location = useLocation();
 
   return useMemo(() => {
-    if (isMobile)
-      return () => navigate(`/chat/settings?session=${activeAgentId}&showMobileWorkspace=true`);
+    if (isMobile) return () => navigate(`/agent/${activeAgentId}/settings`);
 
     return () => {
       useAgentStore.setState({ showAgentSetting: true });

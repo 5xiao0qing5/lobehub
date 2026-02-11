@@ -50,7 +50,7 @@ const ModelSwitchPanel = memo<ModelSwitchPanelProps>(
       <DropdownMenuRoot open={isOpen} onOpenChange={handleOpenChange}>
         <DropdownMenuTrigger openOnHover={!isMobile}>{children}</DropdownMenuTrigger>
         <DropdownMenuPortal>
-          <DropdownMenuPositioner hoverTrigger placement={placement}>
+          <DropdownMenuPositioner hoverTrigger={!isMobile} placement={placement}>
             <DropdownMenuPopup className={styles.container}>
               <PanelContent
                 model={modelProp}
