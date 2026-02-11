@@ -5,7 +5,7 @@ import {
   DropdownMenuRoot,
   DropdownMenuTrigger,
 } from '@lobehub/ui';
-import { memo, useCallback, useEffect, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useState } from 'react';
 
 import { useIsMobile } from '@/hooks/useIsMobile';
 
@@ -26,8 +26,6 @@ const ModelSwitchPanel = memo<ModelSwitchPanelProps>(
     const [internalOpen, setInternalOpen] = useState(false);
     const isMobile = useIsMobile();
     const isOpen = open ?? internalOpen;
-
-    const popupClassName = useMemo(() => styles.container, []);
 
     useEffect(() => {
       if (!isMobile || !isOpen || typeof document === 'undefined') return;
@@ -53,7 +51,7 @@ const ModelSwitchPanel = memo<ModelSwitchPanelProps>(
         <DropdownMenuTrigger openOnHover>{children}</DropdownMenuTrigger>
         <DropdownMenuPortal>
           <DropdownMenuPositioner hoverTrigger placement={placement}>
-            <DropdownMenuPopup className={popupClassName}>
+            <DropdownMenuPopup className={styles.container}>
               <PanelContent
                 model={modelProp}
                 provider={providerProp}
