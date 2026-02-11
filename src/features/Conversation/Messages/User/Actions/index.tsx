@@ -89,7 +89,9 @@ export const UserActionsBar = memo<UserActionsProps>(({ actionsConfig, id, data 
   }, [actionsConfig?.bar, defaultActions.regenerate, defaultActions.edit, extraBarItems]);
 
   const menuItems = useMemo(() => {
-    const base = actionsConfig?.menu ?? [
+    if (actionsConfig?.menu) return [...actionsConfig.menu, ...extraMenuItems];
+
+    const base = [
       defaultActions.edit,
       defaultActions.copy,
       defaultActions.divider,
@@ -99,7 +101,13 @@ export const UserActionsBar = memo<UserActionsProps>(({ actionsConfig, id, data 
       defaultActions.regenerate,
       defaultActions.del,
     ];
-    return [...base, ...extraMenuItems];
+
+    const translateIndex = base.findIndex((item) => 'key' in item && item.key === 'translate');
+    if (translateIndex < 0) return [...base, ...extraMenuItems];
+
+    const next = [...base];
+    next.splice(translateIndex + 1, 0, ...extraMenuItems);
+    return next;
   }, [
     actionsConfig?.menu,
     defaultActions.edit,

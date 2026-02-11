@@ -2,7 +2,7 @@
 
 import { LOADING_FLAT } from '@lobechat/const';
 import isEqual from 'fast-deep-equal';
-import { type MouseEventHandler } from 'react';
+import { type PointerEventHandler } from 'react';
 import { memo, useCallback } from 'react';
 
 import { MESSAGE_ACTION_BAR_PORTAL_ATTRIBUTES } from '@/const/messageActionPortal';
@@ -75,7 +75,7 @@ const AssistantMessage = memo<AssistantMessageProps>(
       useSetMessageItemActionElementPortialContext();
     const setMessageItemActionTypeContext = useSetMessageItemActionTypeContext();
 
-    const onMouseEnter: MouseEventHandler<HTMLDivElement> = useCallback(
+    const onPointerActivate: PointerEventHandler<HTMLDivElement> = useCallback(
       (e) => {
         setMessageItemActionElementPortialContext(e.currentTarget);
         setMessageItemActionTypeContext({ id, index, type: 'assistant' });
@@ -124,7 +124,8 @@ const AssistantMessage = memo<AssistantMessageProps>(
           />
         }
         onDoubleClick={onDoubleClick}
-        onMouseEnter={onMouseEnter}
+        onPointerDown={onPointerActivate}
+        onPointerEnter={onPointerActivate}
       >
         <MessageContent {...item} />
       </ChatItem>

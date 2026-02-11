@@ -1,7 +1,7 @@
 'use client';
 
 import isEqual from 'fast-deep-equal';
-import { type MouseEventHandler } from 'react';
+import { type PointerEventHandler } from 'react';
 import { memo, useCallback } from 'react';
 
 import { LOADING_FLAT } from '@/const/message';
@@ -55,7 +55,7 @@ const CouncilMember = memo<CouncilMemberProps>(({ item, index }) => {
   const setMessageItemActionElementPortialContext = useSetMessageItemActionElementPortialContext();
   const setMessageItemActionTypeContext = useSetMessageItemActionTypeContext();
 
-  const onMouseEnter: MouseEventHandler<HTMLDivElement> = useCallback(
+  const onPointerActivate: PointerEventHandler<HTMLDivElement> = useCallback(
     (e) => {
       setMessageItemActionElementPortialContext(e.currentTarget);
       setMessageItemActionTypeContext({ id, index, type: 'assistant' });
@@ -91,7 +91,8 @@ const CouncilMember = memo<CouncilMemberProps>(({ item, index }) => {
           usage={usage! || metadata}
         />
       }
-      onMouseEnter={onMouseEnter}
+      onPointerDown={onPointerActivate}
+      onPointerEnter={onPointerActivate}
     >
       <AutoScrollShadow content={content} streaming={generating}>
         <MessageContent {...item} />
