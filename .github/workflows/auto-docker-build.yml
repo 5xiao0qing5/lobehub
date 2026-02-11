@@ -64,31 +64,31 @@ jobs:
         run: |
           # 获取基础版本号 (从 package.json)
           BASE_VERSION=$(node -p "require('./package.json').version")
-          
+
           # 获取构建号 (使用 commit count 作为构建号)
           BUILD_NUMBER=$(git rev-list --count HEAD)
-          
+
           # 获取短 commit SHA
           SHORT_SHA=$(git rev-parse --short HEAD)
-          
+
           # 获取当前日期时间 (UTC)
           BUILD_DATE=$(date -u +"%Y%m%d")
-          
+
           # 获取分支名
           BRANCH_NAME=${GITHUB_REF#refs/heads/}
-          
+
           # 生成版本标签
           # 格式: v{BASE_VERSION}-build.{BUILD_NUMBER}+{SHORT_SHA}
           VERSION_TAG="${BASE_VERSION}-build.${BUILD_NUMBER}"
-          
+
           # 如果有自定义后缀，添加到版本号中
           if [ -n "${{ github.event.inputs.version_suffix }}" ]; then
             VERSION_TAG="${BASE_VERSION}-${{ github.event.inputs.version_suffix }}.${BUILD_NUMBER}"
           fi
-          
+
           # 日期+SHA 标签 (备用标签格式)
           DATE_SHA_TAG="${BUILD_DATE}-${SHORT_SHA}"
-          
+
           echo "base_version=${BASE_VERSION}" >> $GITHUB_OUTPUT
           echo "build_number=${BUILD_NUMBER}" >> $GITHUB_OUTPUT
           echo "short_sha=${SHORT_SHA}" >> $GITHUB_OUTPUT
@@ -96,7 +96,7 @@ jobs:
           echo "version_tag=${VERSION_TAG}" >> $GITHUB_OUTPUT
           echo "date_sha_tag=${DATE_SHA_TAG}" >> $GITHUB_OUTPUT
           echo "branch_name=${BRANCH_NAME}" >> $GITHUB_OUTPUT
-          
+
           # 输出版本信息
           echo "📦 Base Version: ${BASE_VERSION}"
           echo "🔢 Build Number: ${BUILD_NUMBER}"
@@ -180,15 +180,15 @@ jobs:
           SHORT_SHA=$(git rev-parse --short HEAD)
           BUILD_DATE=$(date -u +"%Y%m%d")
           BRANCH_NAME=${GITHUB_REF#refs/heads/}
-          
+
           VERSION_TAG="${BASE_VERSION}-build.${BUILD_NUMBER}"
-          
+
           if [ -n "${{ github.event.inputs.version_suffix }}" ]; then
             VERSION_TAG="${BASE_VERSION}-${{ github.event.inputs.version_suffix }}.${BUILD_NUMBER}"
           fi
-          
+
           DATE_SHA_TAG="${BUILD_DATE}-${SHORT_SHA}"
-          
+
           echo "version_tag=${VERSION_TAG}" >> $GITHUB_OUTPUT
           echo "date_sha_tag=${DATE_SHA_TAG}" >> $GITHUB_OUTPUT
           echo "branch_name=${BRANCH_NAME}" >> $GITHUB_OUTPUT
