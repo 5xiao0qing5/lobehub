@@ -4,13 +4,17 @@ import pMap from 'p-map';
 import * as EXPORT_TABLES from '../../schemas';
 import type { LobeChatDatabase } from '../../type';
 
+type ExportCategory = 'conversations' | 'settings';
+
 interface BaseTableConfig {
+  category: ExportCategory;
   table: keyof typeof EXPORT_TABLES;
   type: 'base';
   userField?: string;
 }
 
 export interface RelationTableConfig {
+  category: ExportCategory;
   relations: {
     field: string;
     sourceField?: string;
@@ -23,36 +27,36 @@ export interface RelationTableConfig {
 export const DATA_EXPORT_CONFIG = {
   baseTables: [
     // { table: 'users', userField: 'id' },
-    { table: 'userSettings', userField: 'id' },
-    { table: 'apiKeys' },
-    { table: 'userInstalledPlugins' },
-    { table: 'agents' },
-    { table: 'agentSkills' },
-    { table: 'messageGroups' },
+    { category: 'settings', table: 'userSettings', userField: 'id' },
+    { category: 'settings', table: 'apiKeys' },
+    { category: 'settings', table: 'userInstalledPlugins' },
+    { category: 'conversations', table: 'agents' },
+    { category: 'conversations', table: 'agentSkills' },
+    { category: 'conversations', table: 'messageGroups' },
     // { table: 'agentsToSessions' },
-    { table: 'aiModels' },
-    { table: 'aiProviders' },
+    { category: 'settings', table: 'aiModels' },
+    { category: 'settings', table: 'aiProviders' },
     // async tasks should not be included
     // { table: 'asyncTasks' },
     // { table: 'chunks' },
     // { table: 'unstructuredChunks' },
     // { table: 'embeddings' },
     // { table: 'fileChunks' },
-    { table: 'messageChunks' },
-    { table: 'messagePlugins' },
-    { table: 'messageQueries' },
-    { table: 'messageTranslates' },
-    { table: 'messages' },
+    { category: 'conversations', table: 'messageChunks' },
+    { category: 'conversations', table: 'messagePlugins' },
+    { category: 'conversations', table: 'messageQueries' },
+    { category: 'conversations', table: 'messageTranslates' },
+    { category: 'conversations', table: 'messages' },
 
     // next auth tables won't be included
     // { table: 'nextauthAccounts' },
     // { table: 'nextauthSessions' },
     // { table: 'nextauthAuthenticators' },
     // { table: 'nextauthVerificationTokens' },
-    { table: 'sessionGroups' },
-    { table: 'sessions' },
-    { table: 'threads' },
-    { table: 'topics' },
+    { category: 'conversations', table: 'sessionGroups' },
+    { category: 'conversations', table: 'sessions' },
+    { category: 'conversations', table: 'threads' },
+    { category: 'conversations', table: 'topics' },
   ] as BaseTableConfig[],
   relationTables: [
     // {
@@ -60,6 +64,7 @@ export const DATA_EXPORT_CONFIG = {
     //   table: 'globalFiles',
     // },
     {
+      category: 'conversations',
       relations: [
         { field: 'agentId', sourceField: 'id', sourceTable: 'agents' },
         { field: 'sessionId', sourceField: 'id', sourceTable: 'sessions' },
@@ -68,6 +73,7 @@ export const DATA_EXPORT_CONFIG = {
     },
 
     {
+      category: 'conversations',
       relations: [
         { field: 'id', sourceField: 'id', sourceTable: 'messages' },
         { field: 'queryId', sourceField: 'id', sourceTable: 'messageQueries' },
@@ -166,13 +172,24 @@ export class DataExporterRepos {
     }
   }
 
-  async export(concurrency = 10) {
+  async export(concurrency = 10, exportType: 'all' | 'conversations' | 'settings' = 'all') {
     const result: Record<string, any[]> = {};
+
+    // Filter tables based on export type
+    const filteredBaseTables =
+      exportType === 'all'
+        ? DATA_EXPORT_CONFIG.baseTables
+        : DATA_EXPORT_CONFIG.baseTables.filter((config) => config.category === exportType);
+
+    const filteredRelationTables =
+      exportType === 'all'
+        ? DATA_EXPORT_CONFIG.relationTables
+        : DATA_EXPORT_CONFIG.relationTables.filter((config) => config.category === exportType);
 
     // 1. First query all base tables concurrently
     console.log('Querying base tables...');
     const baseResults = await pMap(
-      DATA_EXPORT_CONFIG.baseTables,
+      filteredBaseTables,
       async (config) => ({ data: await this.queryBaseTables(config), table: config.table }),
       { concurrency },
     );
@@ -185,7 +202,7 @@ export class DataExporterRepos {
     // 2. Then query all relation tables concurrently
 
     const relationResults = await pMap(
-      DATA_EXPORT_CONFIG.relationTables,
+      filteredRelationTables,
       async (config) => {
         // Check if all dependent source tables have data
         const allSourcesHaveData = config.relations.every(

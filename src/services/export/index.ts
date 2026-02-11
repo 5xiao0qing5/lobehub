@@ -1,9 +1,9 @@
 import { lambdaClient } from '@/libs/trpc/client';
-import { type ExportDatabaseData } from '@/types/export';
+import { type DataExportType, type ExportDatabaseData } from '@/types/export';
 
 class ExportService {
-  exportData = async (): Promise<ExportDatabaseData> => {
-    return await lambdaClient.exporter.exportData.mutate();
+  exportData = async (exportType: DataExportType = 'all'): Promise<ExportDatabaseData> => {
+    return await lambdaClient.exporter.exportData.mutate({ exportType });
   };
 }
 

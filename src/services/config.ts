@@ -2,13 +2,13 @@ import { BRANDING_NAME } from '@lobechat/business-const';
 import { downloadFile, exportJSONFile } from '@lobechat/utils/client';
 import dayjs from 'dayjs';
 
-import { type ImportPgDataStructure } from '@/types/export';
+import { type DataExportType, type ImportPgDataStructure } from '@/types/export';
 
 import { exportService } from './export';
 
 class ConfigService {
-  exportAll = async () => {
-    const { data, url, schemaHash } = await exportService.exportData();
+  exportAll = async (exportType: DataExportType = 'all') => {
+    const { data, url, schemaHash } = await exportService.exportData(exportType);
     const filename = `${dayjs().format('YYYY-MM-DD-hh-mm')}_${BRANDING_NAME}-data.json`;
 
     // if url exists, means export data from server and upload the data to S3

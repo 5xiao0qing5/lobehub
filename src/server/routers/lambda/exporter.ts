@@ -170,12 +170,21 @@ const generatePdfFromMarkdown = async (
 };
 
 export const exporterRouter = router({
-  exportData: exportProcedure.mutation(async ({ ctx }): Promise<ExportDatabaseData> => {
-    const data = await ctx.dataExporterRepos.export(5);
-    const schemaHash = await ctx.drizzleMigration.getLatestMigrationHash();
+  exportData: exportProcedure
+    .input(
+      z
+        .object({
+          exportType: z.enum(['all', 'conversations', 'settings']).default('all'),
+        })
+        .optional(),
+    )
+    .mutation(async ({ ctx, input }): Promise<ExportDatabaseData> => {
+      const exportType = input?.exportType || 'all';
+      const data = await ctx.dataExporterRepos.export(5, exportType);
+      const schemaHash = await ctx.drizzleMigration.getLatestMigrationHash();
 
-    return { data, schemaHash };
-  }),
+      return { data, schemaHash };
+    }),
 
   exportPdf: exportProcedure
     .input(

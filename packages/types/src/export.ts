@@ -1,3 +1,11 @@
+/**
+ * Export type for selective data export
+ * - all: Export all user data (default)
+ * - conversations: Export only conversation-related data (sessions, topics, messages, agents, etc.)
+ * - settings: Export only settings-related data (user settings, API keys, AI models, etc.)
+ */
+export type DataExportType = 'all' | 'conversations' | 'settings';
+
 export interface ExportDatabaseData {
   data: Record<string, object[]>;
   schemaHash: string;
