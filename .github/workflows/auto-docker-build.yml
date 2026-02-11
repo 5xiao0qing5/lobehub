@@ -1,0 +1,248 @@
+name: Auto Build Docker Image
+
+# 每次代码推送到主分支时自动构建并推送 Docker 镜像
+# Automatically build and push Docker images on every push to main branches
+
+on:
+  push:
+    branches:
+      - main
+      - next
+    # 忽略以下路径的更改
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - '.github/workflows/**'
+      - '!.github/workflows/auto-docker-build.yml'
+  workflow_dispatch:
+    inputs:
+      version_suffix:
+        description: 'Version suffix (optional, e.g., "beta", "alpha")'
+        required: false
+        default: ''
+
+concurrency:
+  group: ${{ github.ref }}-${{ github.workflow }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  # 默认使用原仓库的镜像名称，用户需要在自己的 fork 中修改为自己的 Docker Hub 用户名和仓库名
+  # Default to original repo image name, users should modify this in their fork
+  # 格式: dockerhub-username/repository-name
+  REGISTRY_IMAGE: lobehub/lobehub
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - platform: linux/amd64
+            os: ubuntu-latest
+          - platform: linux/arm64
+            os: ubuntu-24.04-arm
+    runs-on: ${{ matrix.os }}
+    name: Build ${{ matrix.platform }} Image
+    steps:
+      - name: Prepare
+        run: |
+          platform=${{ matrix.platform }}
+          echo "PLATFORM_PAIR=${platform//\//-}" >> $GITHUB_ENV
+
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Generate version tag
+        id: version
+        run: |
+          # 获取基础版本号 (从 package.json)
+          BASE_VERSION=$(node -p "require('./package.json').version")
+          
+          # 获取构建号 (使用 commit count 作为构建号)
+          BUILD_NUMBER=$(git rev-list --count HEAD)
+          
+          # 获取短 commit SHA
+          SHORT_SHA=$(git rev-parse --short HEAD)
+          
+          # 获取当前日期时间 (UTC)
+          BUILD_DATE=$(date -u +"%Y%m%d")
+          
+          # 获取分支名
+          BRANCH_NAME=${GITHUB_REF#refs/heads/}
+          
+          # 生成版本标签
+          # 格式: v{BASE_VERSION}-build.{BUILD_NUMBER}+{SHORT_SHA}
+          VERSION_TAG="${BASE_VERSION}-build.${BUILD_NUMBER}"
+          
+          # 如果有自定义后缀，添加到版本号中
+          if [ -n "${{ github.event.inputs.version_suffix }}" ]; then
+            VERSION_TAG="${BASE_VERSION}-${{ github.event.inputs.version_suffix }}.${BUILD_NUMBER}"
+          fi
+          
+          # 日期+SHA 标签 (备用标签格式)
+          DATE_SHA_TAG="${BUILD_DATE}-${SHORT_SHA}"
+          
+          echo "base_version=${BASE_VERSION}" >> $GITHUB_OUTPUT
+          echo "build_number=${BUILD_NUMBER}" >> $GITHUB_OUTPUT
+          echo "short_sha=${SHORT_SHA}" >> $GITHUB_OUTPUT
+          echo "build_date=${BUILD_DATE}" >> $GITHUB_OUTPUT
+          echo "version_tag=${VERSION_TAG}" >> $GITHUB_OUTPUT
+          echo "date_sha_tag=${DATE_SHA_TAG}" >> $GITHUB_OUTPUT
+          echo "branch_name=${BRANCH_NAME}" >> $GITHUB_OUTPUT
+          
+          # 输出版本信息
+          echo "📦 Base Version: ${BASE_VERSION}"
+          echo "🔢 Build Number: ${BUILD_NUMBER}"
+          echo "🔖 Version Tag: ${VERSION_TAG}"
+          echo "📅 Date-SHA Tag: ${DATE_SHA_TAG}"
+          echo "🌿 Branch: ${BRANCH_NAME}"
+
+      - name: Docker meta
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY_IMAGE }}
+          tags: |
+            # 主版本标签: v2.1.26-build.123
+            type=raw,value=${{ steps.version.outputs.version_tag }}
+            # 日期+SHA 标签: 20260211-abc1234
+            type=raw,value=${{ steps.version.outputs.date_sha_tag }}
+            # 分支标签 (如果是 main 分支则标记为 latest)
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+            # 分支名标签 (如 next)
+            type=raw,value=${{ steps.version.outputs.branch_name }},enable=${{ github.ref != 'refs/heads/main' }}
+
+      - name: Docker login
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_REGISTRY_USER }}
+          password: ${{ secrets.DOCKER_REGISTRY_PASSWORD }}
+
+      - name: Build and export
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          platforms: ${{ matrix.platform }}
+          context: .
+          file: ./Dockerfile
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            SHA=${{ steps.version.outputs.short_sha }}
+          outputs: type=image,name=${{ env.REGISTRY_IMAGE }},push-by-digest=true,name-canonical=true,push=true
+
+      - name: Export digest
+        run: |
+          rm -rf /tmp/digests
+          mkdir -p /tmp/digests
+          digest="${{ steps.build.outputs.digest }}"
+          touch "/tmp/digests/${digest#sha256:}"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: digest-${{ env.PLATFORM_PAIR }}
+          path: /tmp/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  merge:
+    name: Merge and Push
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Download digests
+        uses: actions/download-artifact@v7
+        with:
+          path: /tmp/digests
+          pattern: digest-*
+          merge-multiple: true
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Generate version tag
+        id: version
+        run: |
+          BASE_VERSION=$(node -p "require('./package.json').version")
+          BUILD_NUMBER=$(git rev-list --count HEAD)
+          SHORT_SHA=$(git rev-parse --short HEAD)
+          BUILD_DATE=$(date -u +"%Y%m%d")
+          BRANCH_NAME=${GITHUB_REF#refs/heads/}
+          
+          VERSION_TAG="${BASE_VERSION}-build.${BUILD_NUMBER}"
+          
+          if [ -n "${{ github.event.inputs.version_suffix }}" ]; then
+            VERSION_TAG="${BASE_VERSION}-${{ github.event.inputs.version_suffix }}.${BUILD_NUMBER}"
+          fi
+          
+          DATE_SHA_TAG="${BUILD_DATE}-${SHORT_SHA}"
+          
+          echo "version_tag=${VERSION_TAG}" >> $GITHUB_OUTPUT
+          echo "date_sha_tag=${DATE_SHA_TAG}" >> $GITHUB_OUTPUT
+          echo "branch_name=${BRANCH_NAME}" >> $GITHUB_OUTPUT
+
+      - name: Docker meta
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY_IMAGE }}
+          tags: |
+            type=raw,value=${{ steps.version.outputs.version_tag }}
+            type=raw,value=${{ steps.version.outputs.date_sha_tag }}
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+            type=raw,value=${{ steps.version.outputs.branch_name }},enable=${{ github.ref != 'refs/heads/main' }}
+
+      - name: Docker login
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_REGISTRY_USER }}
+          password: ${{ secrets.DOCKER_REGISTRY_PASSWORD }}
+
+      - name: Create manifest list and push
+        working-directory: /tmp/digests
+        run: |
+          docker buildx imagetools create $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
+            $(printf '${{ env.REGISTRY_IMAGE }}@sha256:%s ' *)
+
+      - name: Inspect image
+        run: |
+          docker buildx imagetools inspect ${{ env.REGISTRY_IMAGE }}:${{ steps.meta.outputs.version }}
+
+      - name: Output build summary
+        run: |
+          echo "## 🎉 Docker Image Build Successful" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 📦 Image Information" >> $GITHUB_STEP_SUMMARY
+          echo "- **Repository:** \`${{ env.REGISTRY_IMAGE }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Version Tag:** \`${{ steps.version.outputs.version_tag }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Date-SHA Tag:** \`${{ steps.version.outputs.date_sha_tag }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Branch:** \`${{ steps.version.outputs.branch_name }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 🐳 Pull Commands" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`bash" >> $GITHUB_STEP_SUMMARY
+          echo "# Pull by version tag" >> $GITHUB_STEP_SUMMARY
+          echo "docker pull ${{ env.REGISTRY_IMAGE }}:${{ steps.version.outputs.version_tag }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "# Pull by date-SHA tag" >> $GITHUB_STEP_SUMMARY
+          echo "docker pull ${{ env.REGISTRY_IMAGE }}:${{ steps.version.outputs.date_sha_tag }}" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ github.ref }}" == "refs/heads/main" ]; then
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "# Pull latest" >> $GITHUB_STEP_SUMMARY
+            echo "docker pull ${{ env.REGISTRY_IMAGE }}:latest" >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 🔗 Links" >> $GITHUB_STEP_SUMMARY
+          echo "- [View on Docker Hub](https://hub.docker.com/r/${{ env.REGISTRY_IMAGE }}/tags)" >> $GITHUB_STEP_SUMMARY
