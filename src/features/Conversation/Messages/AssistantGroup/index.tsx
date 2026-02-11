@@ -2,8 +2,8 @@
 
 import type { AssistantContentBlock, EmojiReaction } from '@lobechat/types';
 import isEqual from 'fast-deep-equal';
-import type {MouseEventHandler} from 'react';
-import { memo,  Suspense, useCallback, useMemo } from 'react';
+import { type PointerEventHandler } from 'react';
+import { memo, Suspense, useCallback, useMemo } from 'react';
 
 import { MESSAGE_ACTION_BAR_PORTAL_ATTRIBUTES } from '@/const/messageActionPortal';
 import { ChatItem } from '@/features/Conversation/ChatItem';
@@ -108,7 +108,7 @@ const GroupMessage = memo<GroupMessageProps>(({ id, index, disableEditing, isLat
   const setMessageItemActionElementPortialContext = useSetMessageItemActionElementPortialContext();
   const setMessageItemActionTypeContext = useSetMessageItemActionTypeContext();
 
-  const onMouseEnter: MouseEventHandler<HTMLDivElement> = useCallback(
+  const onPointerActivate: PointerEventHandler<HTMLDivElement> = useCallback(
     (e) => {
       if (disableEditing) return;
       setMessageItemActionElementPortialContext(e.currentTarget);
@@ -153,7 +153,8 @@ const GroupMessage = memo<GroupMessageProps>(({ id, index, disableEditing, isLat
         )
       }
       onAvatarClick={onAvatarClick}
-      onMouseEnter={onMouseEnter}
+      onPointerDown={onPointerActivate}
+      onPointerEnter={onPointerActivate}
     >
       {children && children.length > 0 && (
         <Group

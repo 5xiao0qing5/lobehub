@@ -1,6 +1,6 @@
 import { Tag } from '@lobehub/ui';
 import isEqual from 'fast-deep-equal';
-import { type MouseEventHandler } from 'react';
+import { type PointerEventHandler } from 'react';
 import { memo, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -62,7 +62,7 @@ const UserMessage = memo<UserMessageProps>(({ id, disableEditing, index }) => {
   const setMessageItemActionElementPortialContext = useSetMessageItemActionElementPortialContext();
   const setMessageItemActionTypeContext = useSetMessageItemActionTypeContext();
 
-  const onMouseEnter: MouseEventHandler<HTMLDivElement> = useCallback(
+  const onPointerActivate: PointerEventHandler<HTMLDivElement> = useCallback(
     (e) => {
       if (disableEditing) return;
       setMessageItemActionElementPortialContext(e.currentTarget);
@@ -99,7 +99,8 @@ const UserMessage = memo<UserMessageProps>(({ id, disableEditing, index }) => {
         />
       }
       onDoubleClick={onDoubleClick}
-      onMouseEnter={onMouseEnter}
+      onPointerDown={onPointerActivate}
+      onPointerEnter={onPointerActivate}
     >
       <UserMessageContent {...item} />
     </ChatItem>

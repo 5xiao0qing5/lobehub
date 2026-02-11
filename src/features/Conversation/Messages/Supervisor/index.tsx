@@ -3,7 +3,7 @@
 import type { EmojiReaction } from '@lobechat/types';
 import { Tag } from '@lobehub/ui';
 import isEqual from 'fast-deep-equal';
-import { type MouseEventHandler } from 'react';
+import { type PointerEventHandler } from 'react';
 import { memo, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -96,7 +96,7 @@ const GroupMessage = memo<GroupMessageProps>(({ id, index, disableEditing, isLat
   const setMessageItemActionElementPortialContext = useSetMessageItemActionElementPortialContext();
   const setMessageItemActionTypeContext = useSetMessageItemActionTypeContext();
 
-  const onMouseEnter: MouseEventHandler<HTMLDivElement> = useCallback(
+  const onPointerActivate: PointerEventHandler<HTMLDivElement> = useCallback(
     (e) => {
       if (disableEditing) return;
       setMessageItemActionElementPortialContext(e.currentTarget);
@@ -138,7 +138,8 @@ const GroupMessage = memo<GroupMessageProps>(({ id, index, disableEditing, isLat
           memberAvatars={memberAvatars}
         />
       )}
-      onMouseEnter={onMouseEnter}
+      onPointerDown={onPointerActivate}
+      onPointerEnter={onPointerActivate}
     >
       {children && children.length > 0 && (
         <Group

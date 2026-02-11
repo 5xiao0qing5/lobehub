@@ -141,7 +141,9 @@ export const AssistantActionsBar = memo<AssistantActionsBarProps>(
     ]);
 
     const menuItems = useMemo(() => {
-      const base = actionsConfig?.menu ?? [
+      if (actionsConfig?.menu) return [...actionsConfig.menu, ...extraMenuItems];
+
+      const base = [
         defaultActions.edit,
         defaultActions.copy,
         collapseAction,
@@ -155,7 +157,13 @@ export const AssistantActionsBar = memo<AssistantActionsBarProps>(
         defaultActions.delAndRegenerate,
         defaultActions.del,
       ];
-      return [...base, ...extraMenuItems];
+
+      const translateIndex = base.findIndex((item) => 'key' in item && item.key === 'translate');
+      if (translateIndex < 0) return [...base, ...extraMenuItems];
+
+      const next = [...base];
+      next.splice(translateIndex + 1, 0, ...extraMenuItems);
+      return next;
     }, [
       actionsConfig?.menu,
       defaultActions.edit,
