@@ -33,3 +33,6 @@
 *.mp3 binary
 *.zip binary
 *.gz binary
+
+# 对于 GitHub Actions 工作流文件，使用 merge=ours 策略，避免合并冲突
+.github/workflows/** merge=ours
