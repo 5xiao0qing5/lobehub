@@ -1,8 +1,11 @@
-const triggerLinkDownload = (url: string, fileName?: string) => {
+const triggerLinkDownload = (url: string, fileName?: string, openInNewTab: boolean = false) => {
   const link = document.createElement('a');
   link.href = url;
   link.style.display = 'none';
   link.rel = 'noopener noreferrer';
+  if (openInNewTab) {
+    link.target = '_blank';
+  }
 
   if (fileName) {
     link.download = fileName;
@@ -25,7 +28,7 @@ export const downloadFile = async (
   // Cross-origin downloads should use direct navigation instead of fetch.
   // This avoids CORS/credential constraints in self-hosted deployments.
   if (!isSameOrigin) {
-    triggerLinkDownload(parsedUrlString);
+    triggerLinkDownload(parsedUrlString, fileName, true);
     return;
   }
 
@@ -55,7 +58,7 @@ export const downloadFile = async (
     console.log('Download failed:', error);
 
     if (fallbackToOpen) {
-      window.open(parsedUrlString);
+      triggerLinkDownload(parsedUrlString, fileName, true);
     } else {
       throw error;
     }
