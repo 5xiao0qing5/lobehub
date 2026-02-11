@@ -94,7 +94,13 @@ const AdvancedActions = () => {
         <Button
           icon={<Icon icon={HardDriveUpload} />}
           onClick={() => {
-            configService.exportAll();
+            void (async () => {
+              try {
+                await configService.exportAll();
+              } catch (error) {
+                message.error(error instanceof Error ? error.message : 'Export failed');
+              }
+            })();
           }}
         >
           {t('storage.actions.export.button')}
