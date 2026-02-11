@@ -4,7 +4,7 @@ import { BRANDING_NAME } from '@lobechat/business-const';
 import { DEFAULT_SETTINGS } from '@lobechat/config';
 import { type FormGroupItemType } from '@lobehub/ui';
 import { Button, Form, Icon } from '@lobehub/ui';
-import { App, Dropdown, Switch } from 'antd';
+import { App, Dropdown, Switch, Typography } from 'antd';
 import isEqual from 'fast-deep-equal';
 import { HardDriveDownload, HardDriveUpload } from 'lucide-react';
 import { useCallback } from 'react';
@@ -113,12 +113,26 @@ const AdvancedActions = () => {
               },
               {
                 key: 'conversations',
-                label: t('storage.actions.export.exportType.conversations'),
+                label: (
+                  <div>
+                    <div>{t('storage.actions.export.exportType.conversations')}</div>
+                    <Typography.Text style={{ fontSize: 12 }} type={'secondary'}>
+                      {t('storage.actions.export.exportType.conversations.desc')}
+                    </Typography.Text>
+                  </div>
+                ),
                 onClick: () => handleExport('conversations'),
               },
               {
                 key: 'settings',
-                label: t('storage.actions.export.exportType.settings'),
+                label: (
+                  <div>
+                    <div>{t('storage.actions.export.exportType.settings')}</div>
+                    <Typography.Text style={{ fontSize: 12 }} type={'secondary'}>
+                      {t('storage.actions.export.exportType.settings.desc')}
+                    </Typography.Text>
+                  </div>
+                ),
                 onClick: () => handleExport('settings'),
               },
             ],
