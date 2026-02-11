@@ -1,29 +1,9 @@
-name: Database Schema Visualization CI
-permissions:
-  contents: read
-
+name: Disabled Workflow (sync-database-schema.yml)
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - 'docs/development/database-schema.dbml'
+  workflow_dispatch:
 
 jobs:
-  build:
+  disabled:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
-
-      - name: Install bun
-        uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: ${{ secrets.BUN_VERSION }}
-
-      - name: Install deps
-        run: bun i
-
-      - name: sync database schema to dbdocs
-        env:
-          DBDOCS_TOKEN: ${{ secrets.DBDOCS_TOKEN }}
-        run: npm run db:visualize
+      - run: echo "This workflow is disabled on this branch."

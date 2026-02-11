@@ -1,24 +1,38 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
-# GitHub Actions 工作流管理脚本
-# 用于批量禁用/启用 GitHub Actions 工作流
+# GitHub Actions 工作流管理脚本 (工业增强版)
+# 核心策略：
+# 不修改文件名，而是写入“仅手动触发”的空壳 workflow，
+# 避免 Git merge 时的 rename/delete 冲突。
 
 set -euo pipefail
 
-WORKFLOWS_DIR=".github/workflows"
+############################################
+# 路径
+############################################
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+WORKFLOWS_DIR="$REPO_ROOT/.github/workflows"
+
+############################################
+# Flags
+############################################
 
 FORCE=false
+DRY_RUN=false
 
-# 检查是否带 --yes
 for arg in "$@"; do
-    if [[ "$arg" == "--yes" ]]; then
-        FORCE=true
-    fi
+    case "$arg" in
+        --yes) FORCE=true ;;
+        --dry-run) DRY_RUN=true ;;
+    esac
 done
 
-# 颜色定义
+############################################
+# 颜色
+############################################
+
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
@@ -30,217 +44,280 @@ print_error() { echo -e "${RED}✗${NC} $1"; }
 print_warning() { echo -e "${YELLOW}⚠${NC} $1"; }
 print_info() { echo -e "${BLUE}ℹ${NC} $1"; }
 
+############################################
+# 工具函数
+############################################
+
+increment() {
+    COUNT=$((COUNT + 1))
+}
+
 check_workflows_dir() {
-    if [ ! -d "$REPO_ROOT/$WORKFLOWS_DIR" ]; then
-        print_error "工作流目录不存在: $REPO_ROOT/$WORKFLOWS_DIR"
+    if [ ! -d "$WORKFLOWS_DIR" ]; then
+        print_error "工作流目录不存在: $WORKFLOWS_DIR"
         exit 1
     fi
-    cd "$REPO_ROOT/$WORKFLOWS_DIR"
 }
 
 confirm_action() {
     if [ "$FORCE" = true ]; then
-        print_warning "已使用 --yes，跳过确认"
         return
     fi
 
-    read -p "⚠ 确认要禁用所有工作流吗？(yes/no): " confirm
+    echo ""
+    print_warning "此操作将修改工作流文件内容。"
+
+    if [ "$DRY_RUN" = true ]; then
+        print_info "当前为 dry-run，仅预览，不会修改文件。"
+        return
+    fi
+
+    read -r -p "⚠ 确认继续吗？(yes/no): " confirm
     if [[ "$confirm" != "yes" ]]; then
         print_warning "操作已取消"
         exit 0
     fi
 }
 
-list_workflows() {
-    echo ""
-    echo "═══════════════════════════════════════════════════════════════"
-    echo "                    📋 工作流列表"
-    echo "═══════════════════════════════════════════════════════════════"
-    echo ""
+############################################
+# 获取 workflow 文件（极稳版本）
+############################################
 
-    print_info "启用的工作流 (*.yml):"
-    echo ""
-
-    shopt -s nullglob
-    enabled=( *.yml )
-    disabled=( *.yml.disabled )
-
-    if [ ${#enabled[@]} -eq 0 ]; then
-        echo "  (无)"
-    else
-        for file in "${enabled[@]}"; do
-            echo "  ✓ $file"
-        done
-    fi
-
-    echo ""
-    print_warning "禁用的工作流 (*.yml.disabled):"
-    echo ""
-
-    if [ ${#disabled[@]} -eq 0 ]; then
-        echo "  (无)"
-    else
-        for file in "${disabled[@]}"; do
-            echo "  ✗ $file"
-        done
-    fi
-    echo ""
+get_workflow_files() {
+    mapfile -t FILES < <(
+        find "$WORKFLOWS_DIR" \
+            -maxdepth 1 \
+            -type f \
+            \( -name "*.yml" -o -name "*.yaml" \) \
+            -print
+    )
 }
+
+############################################
+# 判断是否禁用
+############################################
+
+is_disabled() {
+    local file=$1
+    grep -q "name: Disabled Workflow" "$file" 2>/dev/null
+}
+
+############################################
+# 写入 disabled workflow
+############################################
+
+write_disabled_workflow() {
+    local workflow=$1
+
+    if [ "$DRY_RUN" = true ]; then
+        print_info "[dry-run] 将屏蔽: $(basename "$workflow")"
+        return
+    fi
+
+    cat > "$workflow" <<EOF
+name: Disabled Workflow ($(basename "$workflow"))
+on:
+  workflow_dispatch:
+
+jobs:
+  disabled:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "This workflow is disabled on this branch."
+EOF
+}
+
+############################################
+# 核心操作
+############################################
 
 disable_workflow() {
     local workflow=$1
 
     if [ ! -f "$workflow" ]; then
-        print_error "工作流不存在: $workflow"
-        return 1
+        print_error "文件不存在: $workflow"
+        return
     fi
 
-    if [[ "$workflow" == *.disabled ]]; then
-        print_warning "工作流已经被禁用: $workflow"
-        return 0
+    if is_disabled "$workflow"; then
+        print_info "跳过: $(basename "$workflow") 已被屏蔽"
+        return
     fi
 
-    mv "$workflow" "$workflow.disabled"
-    print_success "已禁用: $workflow"
+    write_disabled_workflow "$workflow"
+    print_success "已屏蔽: $(basename "$workflow")"
 }
 
 enable_workflow() {
     local workflow=$1
 
     if [ ! -f "$workflow" ]; then
-        print_error "工作流不存在: $workflow"
-        return 1
-    fi
-
-    if [[ "$workflow" != *.disabled ]]; then
-        print_warning "工作流已经是启用状态: $workflow"
-        return 0
-    fi
-
-    local original_name="${workflow%.disabled}"
-    mv "$workflow" "$original_name"
-    print_success "已启用: $original_name"
-}
-
-disable_all() {
-    echo ""
-    echo "═══════════════════════════════════════════════════════════════"
-    echo "                    🚫 禁用所有工作流"
-    echo "═══════════════════════════════════════════════════════════════"
-    echo ""
-
-    confirm_action
-
-    shopt -s nullglob
-    files=( *.yml )
-
-    if [ ${#files[@]} -eq 0 ]; then
-        print_info "没有找到需要禁用的工作流"
+        print_error "文件不存在: $workflow"
         return
     fi
 
-    local disabled_count=0
+    if ! is_disabled "$workflow"; then
+        print_info "跳过: $(basename "$workflow") 看起来未被屏蔽"
+        return
+    fi
 
-    for file in "${files[@]}"; do
-        disable_workflow "$file"
-        disabled_count=$((disabled_count + 1))
+    if [ "$DRY_RUN" = true ]; then
+        print_info "[dry-run] 将恢复: $(basename "$workflow")"
+        return
+    fi
+
+    git checkout HEAD -- "$workflow"
+    print_success "已恢复: $(basename "$workflow")"
+}
+
+############################################
+# 列表
+############################################
+
+list_workflows() {
+
+    get_workflow_files
+
+    echo ""
+    echo "══════════════════════════════════════"
+    echo "            📋 工作流列表"
+    echo "══════════════════════════════════════"
+    echo ""
+
+    if [ ${#FILES[@]} -eq 0 ]; then
+        print_info "没有找到 workflow 文件"
+        return
+    fi
+
+    local enabled=0
+    local disabled=0
+
+    for file in "${FILES[@]}"; do
+        if is_disabled "$file"; then
+            echo -e "  ${RED}✗ $(basename "$file") (已屏蔽)${NC}"
+            disabled=$((disabled + 1))
+        else
+            echo -e "  ${GREEN}✓ $(basename "$file") (启用中)${NC}"
+            enabled=$((enabled + 1))
+        fi
     done
 
     echo ""
-    print_success "完成！已禁用 $disabled_count 个工作流"
+    print_info "统计: 启用 $enabled / 已屏蔽 $disabled"
+}
+
+############################################
+# 批量操作
+############################################
+
+disable_all() {
+
+    get_workflow_files
+    confirm_action
+
+    COUNT=0
+
+    for file in "${FILES[@]}"; do
+        disable_workflow "$file"
+        increment
+    done
+
     echo ""
+    print_success "操作完成，共处理 $COUNT 个文件"
+}
+
+enable_all() {
+
+    get_workflow_files
+
+    COUNT=0
+
+    for file in "${FILES[@]}"; do
+        if is_disabled "$file"; then
+            enable_workflow "$file"
+            increment
+        fi
+    done
+
+    if [ "$COUNT" -eq 0 ]; then
+        print_info "没有发现被屏蔽的文件"
+    else
+        print_success "已恢复 $COUNT 个文件"
+    fi
 }
 
 disable_all_except() {
+
+    shift
     local keep_list=("$@")
 
-    echo ""
-    echo "═══════════════════════════════════════════════════════════════"
-    echo "                    🚫 批量禁用工作流"
-    echo "═══════════════════════════════════════════════════════════════"
-    echo ""
+    get_workflow_files
+    confirm_action
 
-    shopt -s nullglob
-    files=( *.yml )
+    COUNT=0
 
-    local disabled_count=0
-    local kept_count=0
+    for file in "${FILES[@]}"; do
 
-    for file in "${files[@]}"; do
-        keep=false
+        local base
+        base=$(basename "$file")
 
-        for keep_file in "${keep_list[@]}"; do
-            if [ "$file" = "$keep_file" ]; then
+        local keep=false
+        for k in "${keep_list[@]}"; do
+            if [[ "$base" == "$k" ]]; then
                 keep=true
                 break
             fi
         done
 
-        if [ "$keep" = false ]; then
-            disable_workflow "$file"
-            disabled_count=$((disabled_count + 1))
+        if [ "$keep" = true ]; then
+            print_info "保留: $base"
+            is_disabled "$file" && enable_workflow "$file"
         else
-            print_info "保留: $file"
-            kept_count=$((kept_count + 1))
+            disable_workflow "$file"
+            increment
         fi
     done
 
-    echo ""
-    print_success "完成！已禁用 $disabled_count 个工作流，保留 $kept_count 个工作流"
-    echo ""
+    print_success "操作完成，共处理 $COUNT 个文件"
 }
 
-enable_all() {
-    echo ""
-    echo "═══════════════════════════════════════════════════════════════"
-    echo "                    ✓ 批量启用工作流"
-    echo "═══════════════════════════════════════════════════════════════"
-    echo ""
-
-    shopt -s nullglob
-    files=( *.yml.disabled )
-
-    if [ ${#files[@]} -eq 0 ]; then
-        print_info "没有需要启用的工作流"
-        return
-    fi
-
-    local enabled_count=0
-
-    for file in "${files[@]}"; do
-        enable_workflow "$file"
-        enabled_count=$((enabled_count + 1))
-    done
-
-    echo ""
-    print_success "完成！已启用 $enabled_count 个工作流"
-    echo ""
-}
+############################################
+# Help
+############################################
 
 show_help() {
 cat << EOF
 
-GitHub Actions 工作流管理脚本
+GitHub Actions 零冲突管理脚本 (工业增强版)
 
 用法:
-    $0 [命令] [选项]
+  $0 list
+  $0 disable file.yml
+  $0 enable file.yml
 
-命令:
-    list
-    disable <workflow>
-    enable <workflow>
+  $0 disable-all [--yes]
+  $0 disable-all-except keep.yml
+  $0 enable-all
 
-    disable-all [--yes]        禁用所有工作流
-    disable-all-except [files]
-    enable-all
+选项:
+  --yes      跳过确认
+  --dry-run  仅预览，不修改文件 (强烈推荐先运行)
 
 示例:
-    $0 disable-all --yes   (跳过确认，适合 CI)
+
+  # 强烈推荐的安全操作流程
+  $0 disable-all --dry-run
+  $0 disable-all --yes
 
 EOF
 }
 
+############################################
+# main
+############################################
+
 main() {
+
     if [ $# -eq 0 ]; then
         show_help
         exit 0
@@ -250,26 +327,17 @@ main() {
 
     case "$1" in
         list) list_workflows ;;
-        disable)
-            [ $# -lt 2 ] && { print_error "请指定工作流"; exit 1; }
-            disable_workflow "$2"
-            ;;
-        enable)
-            [ $# -lt 2 ] && { print_error "请指定工作流"; exit 1; }
-            enable_workflow "$2"
-            ;;
+        disable) disable_workflow "$WORKFLOWS_DIR/$2" ;;
+        enable) enable_workflow "$WORKFLOWS_DIR/$2" ;;
         disable-all) disable_all ;;
-        disable-all-except)
-            shift
-            disable_all_except "$@"
-            ;;
+        disable-all-except) disable_all_except "$@" ;;
         enable-all) enable_all ;;
         help|--help|-h) show_help ;;
         *)
             print_error "未知命令: $1"
             show_help
             exit 1
-            ;;
+        ;;
     esac
 }
 
