@@ -92,6 +92,7 @@ describe('createClientTaskThread Integration', () => {
     testTopicId = topic.id;
 
     // Create parent message (simulating a task message from supervisor)
+    // @ts-ignore - messages table self-reference causes tsgo to infer QueryResult instead of array
     const [parentMsg] = await serverDB
       .insert(messages)
       .values({
@@ -294,6 +295,7 @@ describe('createClientTaskThread Integration', () => {
       });
 
       // Create second parent message for second thread
+      // @ts-ignore - messages table self-reference causes tsgo to infer QueryResult instead of array
       const [secondParentMsg] = await serverDB
         .insert(messages)
         .values({

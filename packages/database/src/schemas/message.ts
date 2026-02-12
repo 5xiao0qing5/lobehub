@@ -124,6 +124,7 @@ export const messages = pgTable(
     threadId: text('thread_id').references(() => threads.id, { onDelete: 'cascade' }),
     // @ts-ignore
     parentId: text('parent_id').references(() => messages.id, { onDelete: 'set null' }),
+    // @ts-ignore
     quotaId: text('quota_id').references(() => messages.id, { onDelete: 'set null' }),
 
     agentId: text('agent_id').references(() => agents.id, { onDelete: 'cascade' }),

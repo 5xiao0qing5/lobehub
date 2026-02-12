@@ -104,6 +104,7 @@ describe('createClientGroupAgentTaskThread Integration', () => {
     testTopicId = topic.id;
 
     // Create parent message from supervisor (simulating supervisor's task message)
+    // @ts-ignore - messages table self-reference causes tsgo to infer QueryResult instead of array
     const [parentMsg] = await serverDB
       .insert(messages)
       .values({
@@ -249,6 +250,7 @@ describe('createClientGroupAgentTaskThread Integration', () => {
 
     it('should include ancestor messages in thread context', async () => {
       // Create a chain of messages with different agentIds
+      // @ts-ignore - messages table self-reference causes tsgo to infer QueryResult instead of array
       const [userMsg] = await serverDB
         .insert(messages)
         .values({
@@ -261,6 +263,7 @@ describe('createClientGroupAgentTaskThread Integration', () => {
         })
         .returning();
 
+      // @ts-ignore - messages table self-reference causes tsgo to infer QueryResult instead of array
       const [supervisorResponse] = await serverDB
         .insert(messages)
         .values({
